@@ -1,0 +1,464 @@
+ASAv-01(config)# sh run 
+: Saved
+: 
+: Serial Number: 9AM0M99B2H0
+: Hardware:   ASAv, 2048 MB RAM, CPU Pentium II 2493 MHz
+:
+ASA Version 9.2(1) 
+!
+hostname ASAv-01
+enable password ex5SX2Uxh55DI/u5 encrypted
+xlate per-session deny tcp any4 any4
+xlate per-session deny tcp any4 any6
+xlate per-session deny tcp any6 any4
+xlate per-session deny tcp any6 any6
+xlate per-session deny udp any4 any4 eq domain
+xlate per-session deny udp any4 any6 eq domain
+xlate per-session deny udp any6 any4 eq domain
+xlate per-session deny udp any6 any6 eq domain
+names
+!
+interface GigabitEthernet0/0
+ nameif outside
+ security-level 0
+ ip address 192.168.1.253 255.255.255.0 
+!
+interface GigabitEthernet0/1
+ nameif inside
+ security-level 100
+ ip address 10.0.0.1 255.255.255.0 
+!
+interface GigabitEthernet0/2
+ nameif outside2
+ security-level 0
+ ip address dhcp 
+!
+interface GigabitEthernet0/3
+ shutdown
+ no nameif
+ no security-level
+ no ip address
+!
+interface GigabitEthernet0/4
+ shutdown
+ no nameif
+ no security-level
+ no ip address
+!
+interface GigabitEthernet0/5
+ shutdown     
+ no nameif
+ no security-level
+ no ip address
+!
+interface GigabitEthernet0/6
+ shutdown
+ no nameif
+ no security-level
+ no ip address
+!
+interface GigabitEthernet0/7
+ shutdown
+ no nameif
+ no security-level
+ no ip address
+!
+interface GigabitEthernet0/8
+ shutdown
+ no nameif
+ no security-level
+ no ip address
+!
+interface Management0/0
+ management-only
+ nameif MGMT
+ security-level 100
+ ip address 172.16.0.11 255.255.255.0 
+!
+ftp mode passive
+object network INTERNAL
+ subnet 10.0.0.0 255.255.255.0
+object network OUTSIDE_IP
+ host 192.168.1.253
+object network INSIDE_IP
+ host 10.0.0.1
+object network OUTSIDE_GATEWAY
+ host 192.168.1.1
+object network TestWinHost
+ host 10.0.0.10
+object network NET-REMOTE
+ subnet 10.1.0.0 255.255.255.0
+access-list OUTSIDE-IN extended permit ip any any 
+access-list OUTSIDE-IN remark Deny Inbound DHCP to 10x
+access-list OUTSIDE-IN extended deny udp any 10.0.0.0 255.255.255.0 eq bootps 
+access-list OUTSIDE-IN extended deny udp any 10.0.0.0 255.255.255.0 eq bootpc 
+access-list OUTSIDE-IN remark PERMIT inbound SSH AND RDP
+access-list OUTSIDE-IN extended permit tcp 192.168.1.0 255.255.255.0 10.0.0.0 255.255.255.0 eq ssh 
+access-list OUTSIDE-IN extended permit tcp 192.168.1.0 255.255.255.0 10.0.0.0 255.255.255.0 eq 3389 
+access-list OUTSIDE-IN remark ALLOW RETURN PINGS FOR DIAG
+access-list OUTSIDE-IN extended permit icmp any any time-exceeded 
+access-list OUTSIDE-IN extended permit icmp any any echo-reply 
+access-list OUTSIDE-IN remark DENY ALL FOR LOGGING
+access-list OUTSIDE-IN extended deny ip any any 
+access-list INSIDE-OUT remark Deny Outbound DHCP to 192x
+access-list INSIDE-OUT extended deny udp any 192.168.1.0 255.255.255.0 eq bootps 
+access-list INSIDE-OUT extended deny udp any 192.168.1.0 255.255.255.0 eq bootpc 
+access-list INSIDE-OUT remark Permit all outbound
+access-list INSIDE-OUT extended permit ip any any 
+access-list INSIDE-OUTSIDE-TUNNEL remark PERMIT INTERNAL LAN TO REMOTE LAN
+access-list INSIDE-OUTSIDE-TUNNEL extended permit ip object INTERNAL object NET-REMOTE 
+pager lines 23
+logging timestamp
+mtu outside 1500
+mtu inside 1500
+mtu outside2 1500
+mtu MGMT 1500
+no failover
+icmp unreachable rate-limit 1 burst-size 1
+icmp permit any outside
+asdm image disk0:/asdm-641.bin
+no asdm history enable
+arp timeout 14400
+no arp permit-nonconnected
+nat (inside,outside) source static INTERNAL INTERNAL destination static NET-REMOTE NET-REMOTE
+!
+object network INTERNAL
+ nat (inside,outside) dynamic interface
+access-group OUTSIDE-IN in interface outside
+access-group INSIDE-OUT in interface inside
+route outside 0.0.0.0 0.0.0.0 192.168.1.1 1
+timeout xlate 3:00:00
+timeout pat-xlate 0:00:30
+timeout conn 1:00:00 half-closed 0:10:00 udp 0:02:00 icmp 0:00:02
+timeout sunrpc 0:10:00 h323 0:05:00 h225 1:00:00 mgcp 0:05:00 mgcp-pat 0:05:00
+timeout sip 0:30:00 sip_media 0:02:00 sip-invite 0:03:00 sip-disconnect 0:02:00
+timeout sip-provisional-media 0:02:00 uauth 0:05:00 absolute
+timeout tcp-proxy-reassembly 0:01:00
+timeout floating-conn 0:00:00
+dynamic-access-policy-record DfltAccessPolicy
+user-identity default-domain LOCAL
+aaa authentication ssh console LOCAL 
+http server enable
+http 192.168.1.0 255.255.255.0 outside
+no snmp-server location
+no snmp-server contact
+no service password-recovery
+crypto ipsec ikev1 transform-set ESP-3DES-SHA esp-3des esp-sha-hmac 
+crypto ipsec security-association pmtu-aging infinite
+crypto map outside_map 1 match address INSIDE-OUTSIDE-TUNNEL
+crypto map outside_map 1 set pfs group1
+crypto map outside_map 1 set peer 192.168.1.252 
+crypto map outside_map 1 set ikev1 transform-set ESP-3DES-SHA
+crypto map outside_map interface outside
+crypto ca trustpool policy
+no crypto isakmp nat-traversal
+crypto ikev1 enable outside
+crypto ikev1 policy 10
+ authentication pre-share
+ encryption 3des
+ hash sha
+ group 2
+ lifetime 86400
+telnet timeout 5
+ssh stricthostkeycheck
+ssh 0.0.0.0 0.0.0.0 outside
+ssh 0.0.0.0 0.0.0.0 MGMT
+ssh timeout 50
+ssh version 2
+ssh key-exchange group dh-group14-sha1
+console timeout 0
+dhcpd dns 192.168.1.8
+dhcpd option 3 ip 10.0.0.1
+!
+dhcpd address 10.0.0.10-10.0.0.100 inside
+dhcpd enable inside
+!
+threat-detection basic-threat
+threat-detection statistics access-list
+no threat-detection statistics tcp-intercept
+username eric password Pny8Mgrcv7rb237O encrypted privilege 15
+tunnel-group 192.168.1.252 type ipsec-l2l
+tunnel-group 192.168.1.252 ipsec-attributes
+ ikev1 pre-shared-key *****
+!
+class-map inspection_default
+ match default-inspection-traffic
+!
+!             
+policy-map type inspect dns preset_dns_map
+ parameters
+  message-length maximum client auto
+  message-length maximum 512
+policy-map global_policy
+ class inspection_default
+  inspect rtsp 
+  inspect sunrpc 
+  inspect xdmcp 
+  inspect netbios 
+  inspect tftp 
+  inspect ip-options 
+  inspect dns preset_dns_map 
+  inspect ftp 
+  inspect h323 h225 
+  inspect h323 ras 
+  inspect rsh 
+  inspect esmtp 
+  inspect sqlnet 
+  inspect sip  
+  inspect skinny  
+!
+service-policy global_policy global
+prompt hostname context 
+no call-home reporting anonymous
+call-home
+ profile CiscoTAC-1
+  no active
+  destination address http https://tools.cisco.com/its/service/oddce/services/DDCEService
+  destination address email callhome@cisco.com
+  destination transport-method http
+  subscribe-to-alert-group diagnostic
+  subscribe-to-alert-group environment
+  subscribe-to-alert-group inventory periodic monthly 2
+  subscribe-to-alert-group configuration periodic monthly 2
+  subscribe-to-alert-group telemetry periodic daily
+Cryptochecksum:d41d8cd98f00b204e9800998ecf8427e
+: end
+
+
+
+
+ASAv-02(config)# sh run 
+: Saved
+: 
+: Serial Number: 9AD1FTUN2ST
+: Hardware:   ASAv, 2048 MB RAM, CPU Pentium II 2493 MHz
+:
+ASA Version 9.2(1) 
+!
+hostname ASAv-02
+enable password ex5SX2Uxh55DI/u5 encrypted
+xlate per-session deny tcp any4 any4
+xlate per-session deny tcp any4 any6
+xlate per-session deny tcp any6 any4
+xlate per-session deny tcp any6 any6
+xlate per-session deny udp any4 any4 eq domain
+xlate per-session deny udp any4 any6 eq domain
+xlate per-session deny udp any6 any4 eq domain
+xlate per-session deny udp any6 any6 eq domain
+names
+!
+interface GigabitEthernet0/0
+ nameif outside
+ security-level 0
+ ip address 192.168.1.252 255.255.255.0 
+!
+interface GigabitEthernet0/1
+ nameif inside
+ security-level 100
+ ip address 10.1.0.1 255.255.255.0 
+!
+interface GigabitEthernet0/2
+ nameif outside2
+ security-level 0
+ ip address dhcp 
+!
+interface GigabitEthernet0/3
+ shutdown
+ no nameif
+ no security-level
+ no ip address
+!
+interface GigabitEthernet0/4
+ shutdown
+ no nameif
+ no security-level
+ no ip address
+!
+interface GigabitEthernet0/5
+ shutdown     
+ no nameif
+ no security-level
+ no ip address
+!
+interface GigabitEthernet0/6
+ shutdown
+ no nameif
+ no security-level
+ no ip address
+!
+interface GigabitEthernet0/7
+ shutdown
+ no nameif
+ no security-level
+ no ip address
+!
+interface GigabitEthernet0/8
+ shutdown
+ no nameif
+ no security-level
+ no ip address
+!
+interface Management0/0
+ management-only
+ shutdown
+ no nameif
+ no security-level
+ no ip address
+!
+ftp mode passive
+object network INTERNAL
+ subnet 10.1.0.0 255.255.255.0
+object network OUTSIDE_IP
+ host 192.168.1.252
+object network INSIDE_IP
+ host 10.1.0.1
+object network OUTSIDE_GATEWAY
+ host 192.168.1.1
+object network TestWinHost
+ host 10.1.0.10
+object network NET-REMOTE
+ subnet 10.0.0.0 255.255.255.0
+access-list OUTSIDE-IN extended permit ip any any 
+access-list OUTSIDE-IN remark Deny Inbound DHCP to 10x
+access-list OUTSIDE-IN extended deny udp any 10.1.0.0 255.255.255.0 eq bootps 
+access-list OUTSIDE-IN extended deny udp any 10.1.0.0 255.255.255.0 eq bootpc 
+access-list OUTSIDE-IN remark PERMIT inbound SSH AND RDP
+access-list OUTSIDE-IN extended permit tcp 192.168.1.0 255.255.255.0 10.1.0.0 255.255.255.0 eq ssh 
+access-list OUTSIDE-IN extended permit tcp 192.168.1.0 255.255.255.0 10.1.0.0 255.255.255.0 eq 3389 
+access-list OUTSIDE-IN remark ALLOW RETURN PINGS FOR DIAG
+access-list OUTSIDE-IN extended permit icmp any any time-exceeded 
+access-list OUTSIDE-IN extended permit icmp any any echo-reply 
+access-list OUTSIDE-IN remark DENY ALL FOR LOGGING
+access-list OUTSIDE-IN extended deny ip any any 
+access-list INSIDE-OUT remark Deny Outbound DHCP to 192x
+access-list INSIDE-OUT extended deny udp any 192.168.1.0 255.255.255.0 eq bootps 
+access-list INSIDE-OUT extended deny udp any 192.168.1.0 255.255.255.0 eq bootpc 
+access-list INSIDE-OUT remark Permit all outbound
+access-list INSIDE-OUT extended permit ip any any 
+access-list INSIDE-OUTSIDE-TUNNEL remark PERMIT INTERNAL LAN TO REMOTE LAN
+access-list INSIDE-OUTSIDE-TUNNEL extended permit ip object INTERNAL object NET-REMOTE 
+pager lines 23
+logging timestamp
+mtu outside 1500
+mtu inside 1500
+mtu outside2 1500
+no failover
+icmp unreachable rate-limit 1 burst-size 1
+icmp permit any outside
+asdm image disk0:/asdm-641.bin
+no asdm history enable
+arp timeout 14400
+no arp permit-nonconnected
+nat (inside,outside) source static INTERNAL INTERNAL destination static NET-REMOTE NET-REMOTE
+!
+object network INTERNAL
+ nat (inside,outside) dynamic interface
+access-group OUTSIDE-IN in interface outside
+access-group INSIDE-OUT in interface inside
+route outside 0.0.0.0 0.0.0.0 192.168.1.1 1
+timeout xlate 3:00:00
+timeout pat-xlate 0:00:30
+timeout conn 1:00:00 half-closed 0:10:00 udp 0:02:00 icmp 0:00:02
+timeout sunrpc 0:10:00 h323 0:05:00 h225 1:00:00 mgcp 0:05:00 mgcp-pat 0:05:00
+timeout sip 0:30:00 sip_media 0:02:00 sip-invite 0:03:00 sip-disconnect 0:02:00
+timeout sip-provisional-media 0:02:00 uauth 0:05:00 absolute
+timeout tcp-proxy-reassembly 0:01:00
+timeout floating-conn 0:00:00
+dynamic-access-policy-record DfltAccessPolicy
+user-identity default-domain LOCAL
+aaa authentication ssh console LOCAL 
+http server enable
+http 192.168.1.0 255.255.255.0 outside
+no snmp-server location
+no snmp-server contact
+no service password-recovery
+crypto ipsec ikev1 transform-set ESP-3DES-SHA esp-3des esp-sha-hmac 
+crypto ipsec security-association pmtu-aging infinite
+crypto map outside_map 1 match address INSIDE-OUTSIDE-TUNNEL
+crypto map outside_map 1 set pfs group1
+crypto map outside_map 1 set peer 192.168.1.253 
+crypto map outside_map 1 set ikev1 transform-set ESP-3DES-SHA
+crypto map outside_map interface outside
+crypto ca trustpool policy
+no crypto isakmp nat-traversal
+crypto ikev1 enable outside
+crypto ikev1 policy 10
+ authentication pre-share
+ encryption 3des
+ hash sha
+ group 2
+ lifetime 86400
+telnet timeout 5
+ssh stricthostkeycheck
+ssh 0.0.0.0 0.0.0.0 outside
+ssh timeout 50
+ssh version 2
+ssh key-exchange group dh-group14-sha1
+console timeout 0
+dhcpd dns 192.168.1.8
+dhcpd option 3 ip 10.1.0.1
+!
+dhcpd address 10.1.0.10-10.1.0.20 inside
+dhcpd enable inside
+!
+threat-detection basic-threat
+threat-detection statistics access-list
+no threat-detection statistics tcp-intercept
+username eric password Pny8Mgrcv7rb237O encrypted privilege 15
+tunnel-group 192.168.1.253 type ipsec-l2l
+tunnel-group 192.168.1.253 ipsec-attributes
+ ikev1 pre-shared-key *****
+!
+class-map inspection_default
+ match default-inspection-traffic
+!
+!
+policy-map type inspect dns preset_dns_map
+ parameters
+  message-length maximum client auto
+  message-length maximum 512
+policy-map global_policy
+ class inspection_default
+  inspect rtsp 
+  inspect sunrpc 
+  inspect xdmcp 
+  inspect netbios 
+  inspect tftp 
+  inspect ip-options 
+  inspect dns preset_dns_map 
+  inspect ftp 
+  inspect h323 h225 
+  inspect h323 ras 
+  inspect rsh 
+  inspect esmtp 
+  inspect sqlnet 
+  inspect sip  
+  inspect skinny  
+!
+service-policy global_policy global
+prompt hostname context 
+no call-home reporting anonymous
+call-home
+ profile CiscoTAC-1
+  no active
+  destination address http https://tools.cisco.com/its/service/oddce/services/DDCEService
+  destination address email callhome@cisco.com
+  destination transport-method http
+  subscribe-to-alert-group diagnostic
+  subscribe-to-alert-group environment
+  subscribe-to-alert-group inventory periodic monthly 2
+  subscribe-to-alert-group configuration periodic monthly 2
+  subscribe-to-alert-group telemetry periodic daily
+Cryptochecksum:dff5a028863938de3abb03fca61473d9
+: end
+
+
+
+
+
+
+
+
+
+
+
